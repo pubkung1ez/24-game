@@ -39,7 +39,7 @@ void point_mode_normal(){
     }
     if(!answeredCorrect){
         answeredCorrect = true;
-        score -= 10*(difficulty/15)*(streak/11);
+        score -= 10*(difficulty/15)*(streak/11.0);
     }
 }
 
