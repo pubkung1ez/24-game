@@ -2,71 +2,119 @@
 #include <thread>
 #include <chrono>
 #include <atomic>
-#include <string>
+
 using namespace std;
 
 atomic<int> timeLeft(10);
+atomic<int> timemin(0);
 atomic<bool> running(true);
 atomic<int> score(0);
 atomic<int> streak(1);
-atomic<bool> answeredCorrect(true);
+atomic<bool> answeredCorrect(false);
 atomic<int> difficulty(1);
-atomic<bool> modetimer(true);
 atomic<int> scoremax(0);
+atomic<bool> runaway(true);
+atomic<bool> restart(false);
+atomic<bool> timeout(true);
 
 void timer_mode_normal() {
-    while (running && timeLeft > 0) {
 
-        cout << "\nTime Left: " << timeLeft << " sec" << flush;
-        this_thread::sleep_for(chrono::seconds(1));
+    while (runaway) {
 
-        timeLeft--;
-    }
+        while (running && timeLeft > 0) {
 
-    if (timeLeft == 0) {
-        cout << "\nTime's up!\n";
-        running = false;
-        streak = 0;
-    }
-}
+            cout << "\rTime Left: " << timeLeft << " sec" << flush;
+            this_thread::sleep_for(chrono::seconds(1));
 
-void point_mode_normal(){
-    while(answeredCorrect){
-        score += 10*(difficulty/10)*(streak/10);
-        if(score > scoremax){
-            scoremax = score;
+            timeLeft--;
         }
-    }
-    if(!answeredCorrect){
-        answeredCorrect = true;
-        score -= 10*(difficulty/15)*(streak/11.0);
+
+        if (timeout) {
+            cout << "\nTime's up!\n";
+            running = false;
+            streak = 0;
+        }
+
+        this_thread::sleep_for(chrono::milliseconds(50));
     }
 }
+
+
+void point_mode_normal() {
+
+    while (runaway) {
+
+        if (running && answeredCorrect.load()) {
+
+            int addScore = 10 * difficulty.load() * streak.load();
+            score += addScore;
+
+            if (score.load() > scoremax.load()) {
+                scoremax.store(score.load());
+            }
+
+            answeredCorrect = false;
+            streak++;
+
+            cout << "\nScore: " << score << endl;
+        }
+
+        this_thread::sleep_for(chrono::milliseconds(50));
+    }
+}
+
+
+void game_start() {
+
+    while (runaway) {
+
+        if (restart.load()) {
+
+            score = 0;
+            timeLeft = 10;
+            streak = 1;
+            running = true;
+
+            restart = false;
+
+            cout << "\nGame Restarted!\n";
+        }
+
+        this_thread::sleep_for(chrono::milliseconds(50));
+    }
+}
+
 
 int main() {
-    if(modetimer){
+
     thread t1(timer_mode_normal);
     thread t2(point_mode_normal);
-    if("ans == incorrect"){
-        answeredCorrect = false;
+    thread t3(game_start);
+
+    string cmd;
+
+    while (true) {
+
+        cin >> cmd;
+
+        if (cmd == "correct") {
+            answeredCorrect = true;
+        }
+        else if (cmd == "restart") {
+            restart = true;
+        }
+        else if (cmd == "quit") {
+            runaway = false;
+            running = false;
+            break;
+        }
     }
-    //
-        //code by arm
 
-
-    //
-    cout << "\nsss\n";
     t1.join();
     t2.join();
-    }else{
-    thread t2(point_mode_normal);
-    if("ans == incorrect"){
-        answeredCorrect = false;
-    }
+    t3.join();
 
+    cout << "\nFinal Score: " << score << endl;
 
-    t2.join();
-    }
-
-return 0;
+    return 0;
 }
